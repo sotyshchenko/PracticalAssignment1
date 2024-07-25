@@ -29,7 +29,7 @@ def create_connection():
     return None
 
 
-def read_uncommited_demo():
+def read_uncommited():
     """
     Shows how READ UNCOMMITED isolation level works.
     Shows dirty read.
@@ -78,4 +78,4 @@ def read_uncommited_demo():
 
 
 if __name__ == "__main__":
-    read_uncommited_demo()
+    read_uncommited()

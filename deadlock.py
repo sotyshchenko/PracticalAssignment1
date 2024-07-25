@@ -2,6 +2,7 @@ import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
 from datetime import datetime
+import time
 import os
 
 # Load environment variables
@@ -28,7 +29,11 @@ def create_connection():
         print(f"Error: {e}")
     return None
 
-def read_committed():
+
+def deadlock():
+    """
+    Demonstrates a deadlock scenario.
+    """
     connection1 = create_connection()
     connection2 = create_connection()
 
@@ -39,29 +44,47 @@ def read_committed():
         cursor1 = connection1.cursor()
         cursor2 = connection2.cursor()
 
+        # Transaction 1: Update Alice
         print(f"Transaction 1 started: {datetime.now()}")
         connection1.start_transaction(isolation_level='READ COMMITTED')
-        cursor1.execute("UPDATE accounts SET balance = balance - 100 WHERE id = 1")
+        cursor1.execute("UPDATE accounts SET balance = balance - 100 WHERE name = 'Alice'")
+        print(f"Transaction 1 updated Alice's balance")
 
+        # Transaction 2: Update Bob
         print(f"Transaction 2 started: {datetime.now()}")
         connection2.start_transaction(isolation_level='READ COMMITTED')
-        cursor2.execute("SELECT * FROM accounts WHERE id = 1")
+        cursor2.execute("UPDATE accounts SET balance = balance + 100 WHERE name = 'Bob'")
+        print(f"Transaction 2 updated Bob's balance")
 
-        print("READ COMMITTED result:", cursor2.fetchall())
+        # Transaction 1 tries to update Bob
+        print(f"Transaction 1 waiting for lock on Bob: {datetime.now()}")
+        cursor1.execute("UPDATE accounts SET balance = balance - 100 WHERE name = 'Bob'")
+        print(f"Transaction 1 updated Bob's balance")
 
-        connection1.commit()  # Ensure the transaction is committed
+        # Transaction 2 tries to update Alice
+        print(f"Transaction 2 waiting for lock on Alice: {datetime.now()}")
+        cursor2.execute("UPDATE accounts SET balance = balance + 100 WHERE name = 'Alice'")
+        print(f"Transaction 2 updated Alice's balance")
+
+        connection1.commit()
+        connection2.commit()
+
     except Error as e:
         print(f"Error: {e}")
+        if connection1:
+            connection1.rollback()
+        if connection2:
+            connection2.rollback()
     finally:
         if cursor1:
             cursor1.close()
-        if connection1:
-            connection1.rollback()  # Rollback if not committed
+        if connection1 and connection1.is_connected():
             connection1.close()
         if cursor2:
             cursor2.close()
-        if connection2:
+        if connection2 and connection2.is_connected():
             connection2.close()
 
+
 if __name__ == "__main__":
-    read_committed()
+    deadlock()
